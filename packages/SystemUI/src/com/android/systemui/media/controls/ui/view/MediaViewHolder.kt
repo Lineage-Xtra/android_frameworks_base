@@ -131,7 +131,10 @@ class MediaViewHolder constructor(itemView: View) {
                 } else {
                     inflater.inflate(R.layout.media_session_view, parent, false)
                 }
-            mediaView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+            // Do not force View.LAYER_TYPE_HARDWARE on TransitionLayout. Setting a persistent
+            // hardware layer on a view whose child (SquigglyProgress seekbar) invalidates every
+            // frame during playback forces HWUI to allocate, redraw, and flush an entire offscreen
+            // FBO texture every frame, causing severe frame drops during shade pulldown.
             // Because this media view (a TransitionLayout) is used to measure and layout the views
             // in various states before being attached to its parent, we can't depend on the default
             // LAYOUT_DIRECTION_INHERIT to correctly resolve the ltr direction.

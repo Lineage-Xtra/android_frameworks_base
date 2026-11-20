@@ -582,6 +582,12 @@ constructor(
 
         updateShadeAnimationBlur(expansion, tracking, shadeVelocity, shadeDirection)
 
+        if (prevTracking != tracking) {
+            if (::root.isInitialized && root.viewRootImpl != null) {
+                blurUtils.setPersistentEarlyWakeup(tracking, root.viewRootImpl)
+            }
+        }
+
         prevShadeDirection = shadeDirection
         prevShadeVelocity = shadeVelocity
         shadeExpansion = expansion

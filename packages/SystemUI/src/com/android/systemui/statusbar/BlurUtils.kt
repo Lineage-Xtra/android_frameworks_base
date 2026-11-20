@@ -58,10 +58,15 @@ constructor(
         if (Flags.notificationShadeBlur()) {
             blurConfig.maxBlurRadiusPx
         } else {
-            resources.getDimensionPixelSize(R.dimen.max_window_blur_radius).toFloat()
+            val shadeRadius =
+                resources.getDimensionPixelSize(R.dimen.max_shade_window_blur_radius).toFloat()
+            if (shadeRadius > 0) shadeRadius
+            else resources.getDimensionPixelSize(R.dimen.max_window_blur_radius).toFloat()
         }
 
     private var lastAppliedBlur = 0
+    private var lastAppliedScale = -1.0f
+    private var lastAppliedOpaque: Boolean? = null
     private var lastTargetViewRootImpl: ViewRootImpl? = null
     private var _transactionApplier = SyncRtSurfaceTransactionApplier(null)
     @VisibleForTesting
@@ -141,6 +146,11 @@ constructor(
         if (viewRootImpl == null || !viewRootImpl.surfaceControl.isValid) {
             return
         }
+        if (lastAppliedBlur == radius && Math.abs(lastAppliedScale - scale) < 0.0005f && lastAppliedOpaque == opaque) {
+            return
+        }
+        lastAppliedScale = scale
+        lastAppliedOpaque = opaque
         updateTransactionApplier(viewRootImpl)
         val builder =
             SyncRtSurfaceTransactionApplier.SurfaceParams.Builder(viewRootImpl.surfaceControl)

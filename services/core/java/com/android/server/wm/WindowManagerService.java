@@ -5183,13 +5183,6 @@ public class WindowManagerService extends IWindowManager.Stub
     }
 
     @Override
-    public int getDefaultDisplayDefaultRotation() {
-        synchronized (mGlobalLock) {
-            return getDefaultDisplayContentLocked().getDisplayRotation().getDefaultRotation();
-        }
-    }
-
-    @Override
     public void setDisplayChangeWindowController(IDisplayChangeWindowController controller) {
         mAtmService.enforceTaskPermission("setDisplayWindowRotationController");
         try {
@@ -8316,6 +8309,8 @@ public class WindowManagerService extends IWindowManager.Stub
                 if (topApp != null) {
                     topApp.scheduleUpdateOomAdj();
                 }
+                setTopAppHardwareRendererOutputDisabled(true);
+                requestTraversal();
             } else if (!expanded
                     && (demoteTopAppReasons & DEMOTE_TOP_REASON_EXPANDED_NOTIFICATION_SHADE) != 0) {
                 mAtmService.mDemoteTopAppReasons =
@@ -8325,7 +8320,34 @@ public class WindowManagerService extends IWindowManager.Stub
                 if (topApp != null) {
                     topApp.scheduleUpdateOomAdj();
                 }
+                setTopAppHardwareRendererOutputDisabled(false);
+                requestTraversal();
             }
+        }
+    }
+
+    void setTopAppHardwareRendererOutputDisabled(boolean disabled) {
+        final WindowProcessController topApp = mAtmService.mTopApp;
+        for (int i = mRoot.getChildCount() - 1; i >= 0; i--) {
+            final DisplayContent dc = mRoot.getChildAt(i);
+            dc.forAllWindows(w -> {
+                final boolean isTopAppWindow = topApp != null
+                        && w.mActivityRecord != null
+                        && !w.mActivityRecord.inPinnedWindowingMode()
+                        && (w.mActivityRecord.app == topApp
+                                || (w.mSession != null && w.mSession.mPid == topApp.getPid()))
+                        && w.mAttrs.type >= WindowManager.LayoutParams.FIRST_APPLICATION_WINDOW
+                        && w.mAttrs.type <= WindowManager.LayoutParams.LAST_APPLICATION_WINDOW;
+                if (disabled) {
+                    if (isTopAppWindow) {
+                        w.setHardwareRendererOutputDisabled(true);
+                    }
+                } else {
+                    if (w.isHardwareRendererOutputDisabled()) {
+                        w.setHardwareRendererOutputDisabled(false);
+                    }
+                }
+            }, true /* traverseTopToBottom */);
         }
     }
 

@@ -5862,6 +5862,9 @@ public class ActivityTaskManagerService extends IActivityTaskManager.Stub {
             Trace.instant(TRACE_TAG_WINDOW_MANAGER, "cancel-demote-top-for-ns-switch");
             mDemoteTopAppReasons = demoteReasons & ~DEMOTE_TOP_REASON_EXPANDED_NOTIFICATION_SHADE;
             cancelExpandedShade = mDemoteTopAppReasons == 0;
+            if (mWindowManager != null) {
+                mWindowManager.setTopAppHardwareRendererOutputDisabled(false);
+            }
         } else {
             cancelExpandedShade = false;
         }

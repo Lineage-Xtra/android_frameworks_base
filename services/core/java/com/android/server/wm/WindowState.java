@@ -1571,18 +1571,41 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
         return !mWindowFrames.mFrame.equals(mWindowFrames.mLastFrame);
     }
 
+    private boolean mIsHardwareRendererOutputDisabled;
+
+    void setHardwareRendererOutputDisabled(boolean disabled) {
+        if (mIsHardwareRendererOutputDisabled == disabled) {
+            return;
+        }
+        mIsHardwareRendererOutputDisabled = disabled;
+        if (mClient != null) {
+            try {
+                mClient.requestHardwareRendererOutputDisabled(disabled);
+            } catch (RemoteException e) {
+            }
+        }
+    }
+
+    boolean isHardwareRendererOutputDisabled() {
+        return mIsHardwareRendererOutputDisabled;
+    }
+
     private void updateClientHardwareRendererOutputState(DisplayContent oldDisplay,
             DisplayContent newDisplay) {
         final boolean oldState =
-                oldDisplay != null && oldDisplay.isHardwareRendererOutputDisabled();
+                (oldDisplay != null && oldDisplay.isHardwareRendererOutputDisabled())
+                        || mIsHardwareRendererOutputDisabled;
         final boolean newState =
-                newDisplay != null && newDisplay.isHardwareRendererOutputDisabled();
+                (newDisplay != null && newDisplay.isHardwareRendererOutputDisabled())
+                        || mIsHardwareRendererOutputDisabled;
         if (oldState == newState) {
             return;
         }
-        try {
-            mClient.requestHardwareRendererOutputDisabled(newState);
-        } catch (RemoteException e) {
+        if (mClient != null) {
+            try {
+                mClient.requestHardwareRendererOutputDisabled(newState);
+            } catch (RemoteException e) {
+            }
         }
     }
 

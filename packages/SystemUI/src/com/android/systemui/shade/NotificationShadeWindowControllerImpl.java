@@ -139,6 +139,8 @@ public class NotificationShadeWindowControllerImpl
     private ForcePluginOpenListener mForcePluginOpenListener;
     private Consumer<Integer> mScrimsVisibilityListener;
     private final ArrayList<WeakReference<StatusBarWindowCallback>> mCallbacks = new ArrayList<>();
+    private boolean mIsUserInteracting = false;
+    private boolean mLastNotifiedExpanded = false;
 
     private final SysuiColorExtractor mColorExtractor;
     private final NotificationShadeWindowModel mNotificationShadeWindowModel;
@@ -269,19 +271,35 @@ public class NotificationShadeWindowControllerImpl
         }
     }
 
+    private void onShadeUserInteractingChanged(Boolean isInteracting) {
+        final boolean interacting = Boolean.TRUE.equals(isInteracting);
+        if (mIsUserInteracting != interacting) {
+            mIsUserInteracting = interacting;
+            updateNotificationShadeExpandedState();
+        }
+    }
+
     @VisibleForTesting
     void onShadeOrQsExpanded(Boolean isExpanded) {
         if (mCurrentState.shadeOrQsExpanded != isExpanded) {
             mCurrentState.shadeOrQsExpanded = isExpanded;
             apply(mCurrentState);
+            updateNotificationShadeExpandedState();
+        }
+    }
 
-            final IBinder token = mWindowRootView.getWindowToken();
+    private void updateNotificationShadeExpandedState() {
+        final boolean expandedOrInteracting =
+                mCurrentState.shadeOrQsExpanded || mIsUserInteracting;
+        if (mLastNotifiedExpanded != expandedOrInteracting) {
+            mLastNotifiedExpanded = expandedOrInteracting;
+            final IBinder token = mWindowRootView != null ? mWindowRootView.getWindowToken() : null;
             if (token != null) {
                 mBackgroundExecutor.execute(
                         () -> {
                             try {
                                 WindowManagerGlobal.getWindowManagerService()
-                                        .onNotificationShadeExpanded(token, isExpanded);
+                                        .onNotificationShadeExpanded(token, expandedOrInteracting);
                             } catch (RemoteException e) {
                                 Log.e(TAG, "Failed to call onNotificationShadeExpanded", e);
                             }
@@ -360,6 +378,11 @@ public class NotificationShadeWindowControllerImpl
         if (mKeyguardViewMediator.isShowingAndNotOccluded()) {
             setKeyguardShowing(true);
         }
+
+        if (mLastNotifiedExpanded) {
+            mLastNotifiedExpanded = false;
+            updateNotificationShadeExpandedState();
+        }
     }
 
     @Nullable
@@ -375,6 +398,10 @@ public class NotificationShadeWindowControllerImpl
                 mWindowRootView,
                 mShadeInteractorLazy.get().isAnyExpanded(),
                 this::onShadeOrQsExpanded);
+        collectFlow(
+                mWindowRootView,
+                mShadeInteractorLazy.get().isUserInteracting(),
+                this::onShadeUserInteractingChanged);
         collectFlow(
                 mWindowRootView,
                 mShadeInteractorLazy.get().isQsExpanded(),

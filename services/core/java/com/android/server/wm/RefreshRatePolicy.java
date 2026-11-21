@@ -135,6 +135,25 @@ class RefreshRatePolicy {
         return preferredDisplayModeId;
     }
 
+    private boolean isTopAppDemotedForNotificationShade(WindowState w) {
+        if ((mWmService.mAtmService.mDemoteTopAppReasons
+                & ActivityTaskManagerService.DEMOTE_TOP_REASON_EXPANDED_NOTIFICATION_SHADE) != 0) {
+            if (w.mActivityRecord != null && w.mActivityRecord.inPinnedWindowingMode()) {
+                return false;
+            }
+            final WindowProcessController topApp = mWmService.mAtmService.mTopApp;
+            if (topApp != null) {
+                if (w.mActivityRecord != null && w.mActivityRecord.app == topApp) {
+                    return true;
+                }
+                if (w.mSession != null && w.mSession.mPid == topApp.getPid()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     /**
      * Calculate the priority based on whether the window is in focus and whether the application
      * voted for a specific refresh rate.
@@ -144,6 +163,10 @@ class RefreshRatePolicy {
      * about the refresh rate.
      */
     int calculatePriority(WindowState w) {
+        if (isTopAppDemotedForNotificationShade(w)) {
+            return LAYER_PRIORITY_NOT_FOCUSED_WITH_MODE;
+        }
+
         boolean isFocused = w.isFocused();
         int preferredModeId = getPreferredModeId(w);
 
@@ -224,6 +247,12 @@ class RefreshRatePolicy {
     }
 
     boolean updateFrameRateVote(WindowState w) {
+        if (isTopAppDemotedForNotificationShade(w)) {
+            return w.mFrameRateVote.update(30f,
+                    Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE,
+                    SurfaceControl.FRAME_RATE_SELECTION_STRATEGY_OVERRIDE_CHILDREN);
+        }
+
         @DisplayManager.SwitchingType int refreshRateSwitchingType =
                 mWmService.mDisplayManagerInternal.getRefreshRateSwitchingType();
 
